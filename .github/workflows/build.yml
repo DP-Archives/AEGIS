@@ -84,7 +84,7 @@ jobs:
 
 
       # ============================================================
-      # PREPARE BUILDOZER ANDROID SDK DIRECTORY
+      # PREPARE BUILDOZER ANDROID SDK
       # ============================================================
 
       - name: Prepare Buildozer Android SDK
@@ -96,11 +96,6 @@ jobs:
 
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Buildozer SDK:"
-          echo "$SDK"
-
-          mkdir -p "$SDK"
-
           mkdir -p "$SDK/cmdline-tools"
 
           cd "$HOME"
@@ -111,16 +106,13 @@ jobs:
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
             -O android-cmdline-tools.zip
 
-          echo "Extracting..."
+          echo "Extracting Android command line tools..."
 
           unzip -q android-cmdline-tools.zip \
             -d "$SDK/cmdline-tools"
 
           mv "$SDK/cmdline-tools/cmdline-tools" \
              "$SDK/cmdline-tools/latest"
-
-          export ANDROID_HOME="$SDK"
-          export ANDROID_SDK_ROOT="$SDK"
 
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
@@ -129,13 +121,13 @@ jobs:
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
 
           echo ""
-          echo "sdkmanager version:"
+          echo "Testing sdkmanager..."
 
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
 
 
       # ============================================================
-      # ACCEPT LICENSES
+      # ACCEPT ANDROID LICENSES
       # ============================================================
 
       - name: Accept Android licenses
@@ -151,7 +143,7 @@ jobs:
 
 
       # ============================================================
-      # INSTALL REQUIRED ANDROID COMPONENTS
+      # INSTALL ANDROID COMPONENTS
       # ============================================================
 
       - name: Install Android components
@@ -169,16 +161,16 @@ jobs:
             "build-tools;34.0.0"
 
           echo ""
-          echo "Installed components:"
+          echo "Installed Build Tools:"
 
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" --list_installed
+          ls -la "$SDK/build-tools"
 
 
       # ============================================================
-      # VERIFY AIDL
+      # VERIFY AIDL EXISTS
       # ============================================================
 
-      - name: Verify Build Tools and AIDL
+      - name: Verify AIDL
         run: |
 
           SDK="$HOME/.buildozer/android/platform/android-sdk"
@@ -187,26 +179,33 @@ jobs:
           echo "VERIFYING AIDL"
           echo "=========================================="
 
-          echo ""
-          echo "Build Tools directory:"
+          AIDL="$SDK/build-tools/34.0.0/aidl"
 
-          ls -la "$SDK/build-tools"
+          if [ ! -f "$AIDL" ]; then
+            echo "ERROR: AIDL NOT FOUND"
+            echo "Expected:"
+            echo "$AIDL"
+            exit 1
+          fi
 
-          echo ""
-          echo "AIDL files:"
-
-          find "$SDK/build-tools" \
-            -name "aidl" \
-            -type f \
-            -print
-
-          echo ""
-          echo "Testing AIDL..."
-
-          "$SDK/build-tools/34.0.0/aidl" --version
+          if [ ! -x "$AIDL" ]; then
+            chmod +x "$AIDL" || true
+          fi
 
           echo ""
-          echo "AIDL TEST PASSED."
+          echo "AIDL FOUND:"
+          echo "$AIDL"
+
+          echo ""
+          echo "AIDL file information:"
+          file "$AIDL"
+
+          echo ""
+          echo "AIDL permissions:"
+          ls -lh "$AIDL"
+
+          echo ""
+          echo "AIDL check PASSED."
 
 
       # ============================================================
@@ -225,7 +224,7 @@ jobs:
 
 
       # ============================================================
-      # SHOW OUTPUT
+      # SHOW APK OUTPUT
       # ============================================================
 
       - name: Show APK output
@@ -237,15 +236,11 @@ jobs:
           echo "=========================================="
 
           if [ -d "android_app/bin" ]; then
-
             find android_app/bin \
               -type f \
               -print
-
           else
-
             echo "No APK output directory found."
-
           fi
 
 
