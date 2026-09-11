@@ -13,9 +13,6 @@ android.permissions = RECORD_AUDIO,POST_NOTIFICATIONS,FOREGROUND_SERVICE,USE_FUL
 android.api = 34
 android.minapi = 26
 android.ndk = 25b
-android.gradle_dependencies =
-android.add_src =
-android.aidl =
 android.allow_backup = True
 android.logcat_filters = *:S python:D
 
