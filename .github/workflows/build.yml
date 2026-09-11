@@ -13,19 +13,39 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+
+      # ============================================================
+      # CHECKOUT
+      # ============================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      # ============================================================
+      # PYTHON
+      # ============================================================
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
+      # ============================================================
+      # JAVA
+      # ============================================================
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
+
+      # ============================================================
+      # LINUX DEPENDENCIES
+      # ============================================================
 
       - name: Install system dependencies
         run: |
@@ -46,72 +66,143 @@ jobs:
             libssl-dev \
             patchelf
 
-      - name: Install Buildozer and Cython
+
+      # ============================================================
+      # PYTHON BUILD TOOLS
+      # ============================================================
+
+      - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools wheel
           python -m pip install --upgrade buildozer
           python -m pip install cython==0.29.37
 
-      - name: Prepare Buildozer Android SDK
+
+      # ============================================================
+      # ANDROID SDK COMMAND LINE TOOLS
+      # ============================================================
+
+      - name: Install Android SDK command line tools
         run: |
-          mkdir -p "$HOME/.buildozer/android/platform"
 
-          echo "Accepting Android SDK licenses..."
+          echo "=========================================="
+          echo "INSTALLING ANDROID SDK COMMAND LINE TOOLS"
+          echo "=========================================="
 
-          yes | sdkmanager --licenses || true
+          mkdir -p "$HOME/android-sdk/cmdline-tools"
 
-          echo "Installing Android SDK components..."
+          cd "$HOME"
 
-          sdkmanager \
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O commandlinetools.zip
+
+          unzip -q commandlinetools.zip \
+            -d "$HOME/android-sdk/cmdline-tools"
+
+          mv "$HOME/android-sdk/cmdline-tools/cmdline-tools" \
+             "$HOME/android-sdk/cmdline-tools/latest"
+
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
+
+          echo ""
+          echo "SDK location:"
+          echo "$HOME/android-sdk"
+
+          echo ""
+          echo "sdkmanager:"
+          "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --version
+
+
+      # ============================================================
+      # ACCEPT ANDROID LICENSES
+      # ============================================================
+
+      - name: Accept Android SDK licenses
+        run: |
+
+          echo "=========================================="
+          echo "ACCEPTING ANDROID SDK LICENSES"
+          echo "=========================================="
+
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+
+      # ============================================================
+      # INSTALL ANDROID COMPONENTS
+      # ============================================================
+
+      - name: Install Android SDK components
+        run: |
+
+          echo "=========================================="
+          echo "INSTALLING ANDROID SDK COMPONENTS"
+          echo "=========================================="
+
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0"
 
-          echo "Android SDK installation complete."
+          echo ""
+          echo "Installed Android components:"
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed
 
-      - name: Verify Android SDK
+
+      # ============================================================
+      # VERIFY AIDL
+      # ============================================================
+
+      - name: Verify AIDL
         run: |
-          echo "=========================================="
-          echo "ANDROID SDK"
-          echo "=========================================="
-
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
-          echo ""
-          echo "Installed Build Tools:"
-          ls -la "$ANDROID_HOME/build-tools" || true
-
-          echo ""
-          echo "AIDL:"
-          find "$ANDROID_HOME/build-tools" -name aidl -type f -print || true
-
-          echo ""
-          echo "Java:"
-          java -version
-
-          echo ""
-          echo "Python:"
-          python --version
-
-          echo ""
-          echo "Buildozer:"
-          buildozer --version
 
           echo "=========================================="
+          echo "CHECKING AIDL"
+          echo "=========================================="
+
+          AIDL="$ANDROID_SDK_ROOT/build-tools/34.0.0/aidl"
+
+          if [ -f "$AIDL" ]; then
+            echo "AIDL FOUND:"
+            echo "$AIDL"
+
+            chmod +x "$AIDL" || true
+
+            "$AIDL" --version || true
+          else
+            echo "ERROR: AIDL NOT FOUND"
+            exit 1
+          fi
+
+
+      # ============================================================
+      # BUILD AEGIS APK
+      # ============================================================
 
       - name: Build AEGIS APK
         working-directory: android_app
         run: |
+
           echo "=========================================="
           echo "BUILDING AEGIS APK"
           echo "=========================================="
 
           buildozer -v android debug
 
+
+      # ============================================================
+      # SHOW OUTPUT
+      # ============================================================
+
       - name: Show APK output
         if: always()
         run: |
+
           echo "=========================================="
           echo "APK OUTPUT"
           echo "=========================================="
@@ -121,6 +212,11 @@ jobs:
           else
             echo "No APK output directory found."
           fi
+
+
+      # ============================================================
+      # UPLOAD APK
+      # ============================================================
 
       - name: Upload AEGIS APK
         if: success()
