@@ -26,7 +26,7 @@ jobs:
       # PYTHON
       # ============================================================
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -55,6 +55,8 @@ jobs:
             git \
             zip \
             unzip \
+            wget \
+            curl \
             autoconf \
             automake \
             libtool \
@@ -68,7 +70,7 @@ jobs:
 
 
       # ============================================================
-      # PYTHON BUILD TOOLS
+      # INSTALL BUILDOZER
       # ============================================================
 
       - name: Install Buildozer
@@ -78,110 +80,137 @@ jobs:
           python -m pip install --upgrade buildozer
           python -m pip install cython==0.29.37
 
+          buildozer --version
+
 
       # ============================================================
-      # ANDROID SDK COMMAND LINE TOOLS
+      # PREPARE BUILDOZER ANDROID SDK DIRECTORY
       # ============================================================
 
-      - name: Install Android SDK command line tools
+      - name: Prepare Buildozer Android SDK
         run: |
 
           echo "=========================================="
-          echo "INSTALLING ANDROID SDK COMMAND LINE TOOLS"
+          echo "PREPARING BUILDOZER ANDROID SDK"
           echo "=========================================="
 
-          mkdir -p "$HOME/android-sdk/cmdline-tools"
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "Buildozer SDK:"
+          echo "$SDK"
+
+          mkdir -p "$SDK"
+
+          mkdir -p "$SDK/cmdline-tools"
 
           cd "$HOME"
 
+          echo "Downloading Android command line tools..."
+
           wget -q \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -O commandlinetools.zip
+            -O android-cmdline-tools.zip
 
-          unzip -q commandlinetools.zip \
-            -d "$HOME/android-sdk/cmdline-tools"
+          echo "Extracting..."
 
-          mv "$HOME/android-sdk/cmdline-tools/cmdline-tools" \
-             "$HOME/android-sdk/cmdline-tools/latest"
+          unzip -q android-cmdline-tools.zip \
+            -d "$SDK/cmdline-tools"
 
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          mv "$SDK/cmdline-tools/cmdline-tools" \
+             "$SDK/cmdline-tools/latest"
 
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
+          export ANDROID_HOME="$SDK"
+          export ANDROID_SDK_ROOT="$SDK"
+
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
 
           echo ""
-          echo "SDK location:"
-          echo "$HOME/android-sdk"
+          echo "sdkmanager version:"
 
-          echo ""
-          echo "sdkmanager:"
-          "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --version
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
 
 
       # ============================================================
-      # ACCEPT ANDROID LICENSES
+      # ACCEPT LICENSES
       # ============================================================
 
-      - name: Accept Android SDK licenses
+      - name: Accept Android licenses
         run: |
 
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
           echo "=========================================="
-          echo "ACCEPTING ANDROID SDK LICENSES"
+          echo "ACCEPTING ANDROID LICENSES"
           echo "=========================================="
 
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
 
       # ============================================================
-      # INSTALL ANDROID COMPONENTS
+      # INSTALL REQUIRED ANDROID COMPONENTS
       # ============================================================
 
-      - name: Install Android SDK components
+      - name: Install Android components
         run: |
 
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
           echo "=========================================="
-          echo "INSTALLING ANDROID SDK COMPONENTS"
+          echo "INSTALLING ANDROID COMPONENTS"
           echo "=========================================="
 
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0"
 
           echo ""
-          echo "Installed Android components:"
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed
+          echo "Installed components:"
+
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --list_installed
 
 
       # ============================================================
       # VERIFY AIDL
       # ============================================================
 
-      - name: Verify AIDL
+      - name: Verify Build Tools and AIDL
         run: |
 
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
           echo "=========================================="
-          echo "CHECKING AIDL"
+          echo "VERIFYING AIDL"
           echo "=========================================="
 
-          AIDL="$ANDROID_SDK_ROOT/build-tools/34.0.0/aidl"
+          echo ""
+          echo "Build Tools directory:"
 
-          if [ -f "$AIDL" ]; then
-            echo "AIDL FOUND:"
-            echo "$AIDL"
+          ls -la "$SDK/build-tools"
 
-            chmod +x "$AIDL" || true
+          echo ""
+          echo "AIDL files:"
 
-            "$AIDL" --version || true
-          else
-            echo "ERROR: AIDL NOT FOUND"
-            exit 1
-          fi
+          find "$SDK/build-tools" \
+            -name "aidl" \
+            -type f \
+            -print
+
+          echo ""
+          echo "Testing AIDL..."
+
+          "$SDK/build-tools/34.0.0/aidl" --version
+
+          echo ""
+          echo "AIDL TEST PASSED."
 
 
       # ============================================================
-      # BUILD AEGIS APK
+      # BUILD AEGIS
       # ============================================================
 
       - name: Build AEGIS APK
@@ -208,9 +237,15 @@ jobs:
           echo "=========================================="
 
           if [ -d "android_app/bin" ]; then
-            find android_app/bin -type f -print
+
+            find android_app/bin \
+              -type f \
+              -print
+
           else
+
             echo "No APK output directory found."
+
           fi
 
 
