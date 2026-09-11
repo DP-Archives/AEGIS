@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Build AEGIS Android APK
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
 
@@ -26,14 +26,14 @@ jobs:
       # PYTHON
       # ============================================================
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
 
       # ============================================================
-      # JAVA
+      # JAVA 17
       # ============================================================
 
       - name: Set up Java 17
@@ -44,7 +44,7 @@ jobs:
 
 
       # ============================================================
-      # LINUX DEPENDENCIES
+      # SYSTEM DEPENDENCIES
       # ============================================================
 
       - name: Install system dependencies
@@ -55,8 +55,6 @@ jobs:
             git \
             zip \
             unzip \
-            wget \
-            curl \
             autoconf \
             automake \
             libtool \
@@ -66,7 +64,8 @@ jobs:
             libltdl-dev \
             libffi-dev \
             libssl-dev \
-            patchelf
+            patchelf \
+            wget
 
 
       # ============================================================
@@ -77,139 +76,31 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools wheel
-          python -m pip install --upgrade buildozer
-          python -m pip install cython==0.29.37
 
+          python -m pip install \
+            "buildozer==1.5.0"
+
+          python -m pip install \
+            "cython==0.29.37"
+
+          echo ""
+          echo "Buildozer version:"
           buildozer --version
 
 
       # ============================================================
-      # PREPARE BUILDOZER ANDROID SDK
+      # CLEAN OLD BUILDOZER CACHE
       # ============================================================
 
-      - name: Prepare Buildozer Android SDK
+      - name: Clean Buildozer cache
         run: |
+          rm -rf "$HOME/.buildozer"
 
-          echo "=========================================="
-          echo "PREPARING BUILDOZER ANDROID SDK"
-          echo "=========================================="
-
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          mkdir -p "$SDK/cmdline-tools"
-
-          cd "$HOME"
-
-          echo "Downloading Android command line tools..."
-
-          wget -q \
-            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -O android-cmdline-tools.zip
-
-          echo "Extracting Android command line tools..."
-
-          unzip -q android-cmdline-tools.zip \
-            -d "$SDK/cmdline-tools"
-
-          mv "$SDK/cmdline-tools/cmdline-tools" \
-             "$SDK/cmdline-tools/latest"
-
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-
-          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
-
-          echo ""
-          echo "Testing sdkmanager..."
-
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
+          mkdir -p "$HOME/.buildozer"
 
 
       # ============================================================
-      # ACCEPT ANDROID LICENSES
-      # ============================================================
-
-      - name: Accept Android licenses
-        run: |
-
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "=========================================="
-          echo "ACCEPTING ANDROID LICENSES"
-          echo "=========================================="
-
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-
-      # ============================================================
-      # INSTALL ANDROID COMPONENTS
-      # ============================================================
-
-      - name: Install Android components
-        run: |
-
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "=========================================="
-          echo "INSTALLING ANDROID COMPONENTS"
-          echo "=========================================="
-
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
-
-          echo ""
-          echo "Installed Build Tools:"
-
-          ls -la "$SDK/build-tools"
-
-
-      # ============================================================
-      # VERIFY AIDL EXISTS
-      # ============================================================
-
-      - name: Verify AIDL
-        run: |
-
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "=========================================="
-          echo "VERIFYING AIDL"
-          echo "=========================================="
-
-          AIDL="$SDK/build-tools/34.0.0/aidl"
-
-          if [ ! -f "$AIDL" ]; then
-            echo "ERROR: AIDL NOT FOUND"
-            echo "Expected:"
-            echo "$AIDL"
-            exit 1
-          fi
-
-          if [ ! -x "$AIDL" ]; then
-            chmod +x "$AIDL" || true
-          fi
-
-          echo ""
-          echo "AIDL FOUND:"
-          echo "$AIDL"
-
-          echo ""
-          echo "AIDL file information:"
-          file "$AIDL"
-
-          echo ""
-          echo "AIDL permissions:"
-          ls -lh "$AIDL"
-
-          echo ""
-          echo "AIDL check PASSED."
-
-
-      # ============================================================
-      # BUILD AEGIS
+      # BUILD APK
       # ============================================================
 
       - name: Build AEGIS APK
@@ -217,14 +108,14 @@ jobs:
         run: |
 
           echo "=========================================="
-          echo "BUILDING AEGIS APK"
+          echo "STARTING AEGIS ANDROID BUILD"
           echo "=========================================="
 
           buildozer -v android debug
 
 
       # ============================================================
-      # SHOW APK OUTPUT
+      # SHOW BUILD OUTPUT
       # ============================================================
 
       - name: Show APK output
@@ -232,7 +123,7 @@ jobs:
         run: |
 
           echo "=========================================="
-          echo "APK OUTPUT"
+          echo "AEGIS APK OUTPUT"
           echo "=========================================="
 
           if [ -d "android_app/bin" ]; then
@@ -240,7 +131,7 @@ jobs:
               -type f \
               -print
           else
-            echo "No APK output directory found."
+            echo "No APK directory found."
           fi
 
 
