@@ -1,0 +1,14 @@
+{
+    "gemini_api_key": "",
+    "os_system": "android",
+    "assistant_name": "AEGIS",
+    "user_name": "",
+    "ui_color": "#00cbff",
+    "voice_name": "Charon",
+    "morning_brief_enabled": false,
+    "input_device": "",
+    "output_device": "",
+    "wake_word": "hey aegis",
+    "screen_time_limit_enabled": false,
+    "screen_time_limit_minutes": 120
+}
